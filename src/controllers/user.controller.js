@@ -109,10 +109,10 @@ const registerUser = asyncHandler(async (req, res) => {
 
 const loginUser = asyncHandler(async (req, res) => {
   const { username, email, password } = req.body;
-
   if ([email || username, password].some((field) => field?.trim() === ""))
     throw new ApiError(400, "All fields are required");
-  if (!email.includes("@")) throw new ApiError(400, "Invalid Email");
+  // if (!email.includes("@"))
+  //   throw new ApiError(400, "Invalid Email");
 
   const user = await User.findOne({
     $or: [{ email }, { username }],
@@ -129,10 +129,10 @@ const loginUser = asyncHandler(async (req, res) => {
   const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(
     user._id
   );
-  // const createdUser = await User.findById(user._id).select(
-  //   "-password -refreshToken"
-  // );
-  const loggedInUser = user.select("-password -refreshToken");
+
+  const loggedInUser = await User.findById(user._id).select(
+    "-password -refreshToken"
+  );
 
   const options = {
     httpOnly: true,
