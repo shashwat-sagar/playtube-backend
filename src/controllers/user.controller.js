@@ -3,7 +3,9 @@ import { ApiError } from "../utils/ApiError.js";
 import { User } from "../models/user.models.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
+import jwt from "jsonwebtoken";
 
+//step1 write conrtoller for the routes. Meaning it is a middleware or the functionalities that you want to perform while hitting the route
 const generateAccessAndRefreshTokens = async (userId) => {
   try {
     const user = await User.findById(userId);
@@ -22,7 +24,7 @@ const generateAccessAndRefreshTokens = async (userId) => {
   }
 };
 
-//step1 write conrtoller for the routes. Meaning it is a middleware or the functionalities that you want to perform while hitting the route
+//Register controller
 const registerUser = asyncHandler(async (req, res) => {
   //+step a: get user details from frontend. i.e: username, email, fullName, avatar, coverImage, password
   //+step a.1: validation for not empty or email
@@ -98,17 +100,16 @@ const registerUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, createdUser, "User registered succesfully"));
 });
 
-//login user controller
-//steps:
-//+step1: get user details from frontend i.e: Username/email and password
-//+step2: validation for not empty fields and email validation
-//+step3: check if user is registered or not using username, email
-////+ step3.A: if not then return error with user to get registered
-////- step3.B: else match password
-//step4: generate access token and refresh token, save it to db and
-////step4.Asend it to user using cookie
-
+//login controller
 const loginUser = asyncHandler(async (req, res) => {
+  //login user controller
+  //+step1: get user details from frontend i.e: Username/email and password
+  //+step2: validation for not empty fields and email validation
+  //+step3: check if user is registered or not using username, email
+  ////+ step3.A: if not then return error with user to get registered
+  ////- step3.B: else match password
+  //step4: generate access token and refresh token, save it to db and
+  ////step4.Asend it to user using cookie
   const { username, email, password } = req.body;
   if ([email || username, password].some((field) => field?.trim() === ""))
     throw new ApiError(400, "All fields are required");
@@ -153,7 +154,6 @@ const loginUser = asyncHandler(async (req, res) => {
 });
 
 //logout controller
-
 const logoutUser = asyncHandler(async (req, res) => {
   await User.findByIdAndUpdate(
     req.user._id,
@@ -178,4 +178,48 @@ const logoutUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, {}, "User logged out successfully"));
 });
 
-export { registerUser, loginUser, logoutUser };
+//refreshAccessToken
+const refreshAccessToken = asyncHandler(async (req, res) => {
+  const incomingRefreshToken =
+    req.cookies.refreshToken || req.body.refreshToken;
+  if (!incomingRefreshToken)
+    throw new ApiError(401, "Unauthorized Request or Invalid Refresh Token");
+  try {
+    const decodedToken = jwt.verify(
+      incomingRefreshToken,
+      process.env.REFRESH_TOKEN_SECRET
+    );
+    const user = await User.findById(decodedToken?._id).select("-password");
+    if (!user)
+      throw new ApiError(401, "Unauthorized Request or Invalid Refresh Token");
+    if (incomingRefreshToken !== user?.refreshToken)
+      throw new ApiError(401, "Refresh token is Expired or used");
+
+    const options = {
+      httpOnly: true,
+      secure: true,
+    };
+
+    const { accessToken, newRefreshToken } =
+      await generateAccessAndRefreshTokens(user._id);
+
+    return res
+      .status(200)
+      .cookie("accessToken", accessToken, options)
+      .cookie("refreshToken", newRefreshToken, options)
+      .json(
+        new ApiResponse(
+          200,
+          {
+            accessToken: accessToken,
+            refreshToken: newRefreshToken,
+          },
+          "Access Token Refreshed Successfully"
+        )
+      );
+  } catch (error) {
+    throw new ApiError(401, error?.message || "Invalid refresh token");
+  }
+});
+
+export { registerUser, loginUser, logoutUser, refreshAccessToken };
