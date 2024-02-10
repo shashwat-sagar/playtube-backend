@@ -4,6 +4,24 @@ import { User } from "../models/user.models.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 
+const generateAccessAndRefreshTokens = async (userId) => {
+  try {
+    const user = await User.findById(userId);
+    const accessToken = user.generateAccessToken();
+    const refreshToken = user.generateRefreshToken();
+
+    user.refreshToken = refreshToken;
+    await user.save({ validateBeforeSave: false });
+
+    return { accessToken, refreshToken };
+  } catch (error) {
+    throw new ApiError(
+      500,
+      "Something went wrong while generating refresh and access token"
+    );
+  }
+};
+
 //step1 write conrtoller for the routes. Meaning it is a middleware or the functionalities that you want to perform while hitting the route
 const registerUser = asyncHandler(async (req, res) => {
   //+step a: get user details from frontend. i.e: username, email, fullName, avatar, coverImage, password
@@ -79,4 +97,84 @@ const registerUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, createdUser, "User registered succesfully"));
 });
 
-export { registerUser };
+//login user controller
+//steps:
+//+step1: get user details from frontend i.e: Username/email and password
+//+step2: validation for not empty fields and email validation
+//+step3: check if user is registered or not using username, email
+////+ step3.A: if not then return error with user to get registered
+////- step3.B: else match password
+//step4: generate access token and refresh token, save it to db and
+////step4.Asend it to user using cookie
+
+const loginUser = asyncHandler(async (req, res) => {
+  const { username, email, password } = req.body;
+
+  if ([email || username, password].some((field) => field?.trim() === ""))
+    throw new ApiError(400, "All fields are required");
+  if (!email.includes("@")) throw new ApiError(400, "Invalid Email");
+
+  const user = await User.findOne({
+    $or: [{ email }, { username }],
+  });
+  if (!user)
+    throw new ApiError(
+      404,
+      "User not found. Please check your username/email or register for an account"
+    );
+  const isPasswordValid = await user.isPasswordCorrect(password);
+
+  if (!isPasswordValid) throw new ApiError(401, "Invalid user credentails");
+
+  const { accessToken, refreshToken } = await generateAccessAndRefreshTokens(
+    user._id
+  );
+  // const createdUser = await User.findById(user._id).select(
+  //   "-password -refreshToken"
+  // );
+  const loggedInUser = user.select("-password -refreshToken");
+
+  const options = {
+    httpOnly: true,
+    secure: true,
+  };
+  return res
+    .status(200)
+    .cookie("accessToken", accessToken, options)
+    .cookie("refreshToken", refreshToken, options)
+    .json(
+      new ApiResponse(
+        200,
+        { user: loggedInUser, accessToken, refreshToken },
+        "user logged In successfully"
+      )
+    );
+});
+
+//logout controller
+
+const logoutUser = asyncHandler(async (req, res) => {
+  await User.findByIdAndUpdate(
+    req.user._id,
+    {
+      $set: {
+        refreshToken: undefined,
+      },
+    },
+    {
+      new: true,
+    }
+  );
+  const options = {
+    httpOnly: true,
+    secure: true,
+  };
+
+  return res
+    .status(200)
+    .clearCookie("accessToken", options)
+    .clearCookie("refreshToken", options)
+    .json(new ApiResponse(200, {}, "User logged out successfully"));
+});
+
+export { registerUser, loginUser, logoutUser };
