@@ -296,8 +296,8 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
   if (!coverLocalPath) throw new ApiError(400, "Cover Image file is missing");
   const coverImage = await uploadOnCloudinary(coverLocalPath);
   if (!coverImage.url) throw new ApiError(400, "Error while uploading");
-
-  const user = await User.findByIdAndUpdate(
+  const user = await User.findById(req.user?._id);
+  const userUpload = await User.findByIdAndUpdate(
     req.user?._id,
     {
       $set: {
@@ -306,10 +306,11 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
     },
     { new: true }
   ).select("-password");
+  await removeFromCloudinary(user.coverImage);
 
   return res
     .status(200)
-    .json(new ApiResponse(200, user, "CoverImage updated successfully"));
+    .json(new ApiResponse(200, userUpload, "CoverImage updated successfully"));
 });
 
 export {
