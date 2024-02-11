@@ -28,10 +28,13 @@ const uploadOnCloudinary = async (localFilePath) => {
 
 const removeFromCloudinary = async (oldImageURL) => {
   try {
-    if (!oldImageURL) return null;
+    const oldImage = oldImageURL.slice(-24, -4);
+    console.log(oldImage);
+
+    if (!oldImage) return null;
     //remove from cloudinary
-    const response = await cloudinary.uploader.destroy(oldImageURL, {
-      resource_type: "auto",
+    const response = await cloudinary.uploader.destroy(oldImage, {
+      resource_type: "image",
     });
     console.log("Respons from cloudinary", response);
     return response;
