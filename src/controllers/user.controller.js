@@ -230,7 +230,6 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
 const changeCurrentPassword = asyncHandler(async (req, res) => {
   const { oldPassword, newPassword } = req.body;
   const user = await User.findById(req.user?._id);
-  console.log(oldPassword);
   const isPasswordCorrect = await user.isPasswordCorrect(oldPassword);
   if (!isPasswordCorrect)
     throw new ApiError("401", "Current password is incorrect");
@@ -244,6 +243,8 @@ const changeCurrentPassword = asyncHandler(async (req, res) => {
 
 //get  user
 const getCurrentUser = asyncHandler(async (req, res) => {
+  const user = req.user;
+  console.log(user?.email);
   return res
     .status(200)
     .json(new ApiResponse(200, req.user, "current user fetched successfully"));
