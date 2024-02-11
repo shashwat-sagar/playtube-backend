@@ -30,7 +30,6 @@ router.route("/register").post(
   // controller
   registerUser
 );
-
 router.route("/login").post(loginUser);
 
 //secured routes
@@ -45,4 +44,5 @@ router
 router
   .route("/update-cover")
   .post(upload.single("coverImage"), verifyJWT, updateUserCoverImage);
+
 export default router;
