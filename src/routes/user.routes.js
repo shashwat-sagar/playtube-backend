@@ -37,12 +37,12 @@ router.route("/logout").post(verifyJWT, logoutUser);
 router.route("/refresh-token").post(refreshAccessToken);
 router.route("/change-password").post(verifyJWT, changeCurrentPassword);
 router.route("/get-user").post(verifyJWT, getCurrentUser);
-router.route("/update-details").post(verifyJWT, updateAccountDetails);
+router.route("/update-details").patch(verifyJWT, updateAccountDetails);
 router
   .route("/update-avatar")
-  .post(upload.single("avatar"), verifyJWT, updateUserAvatar);
+  .patch(verifyJWT, upload.single("avatar"), updateUserAvatar);
 router
   .route("/update-cover")
-  .post(upload.single("coverImage"), verifyJWT, updateUserCoverImage);
+  .patch(verifyJWT, upload.single("coverImage"), updateUserCoverImage);
 
 export default router;
